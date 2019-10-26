@@ -831,15 +831,16 @@ Keybindings (org-mode buffer):
 (define-key interleave-mode-map (kbd "M-p") #'interleave-sync-pdf-page-previous)
 (define-key interleave-mode-map (kbd "M-n") #'interleave-sync-pdf-page-next)
 
-;; (define-key-after interleave-pdf-mode-map (kbd "i") #'interleave-add-note 'eaf-mode)
-;; (define-key-after interleave-pdf-mode-map (kbd "q") #'interleave-quit 'eaf-mode)
-
 (defun interleave--eaf-pdf-viewer-add-note ()
   (if (equal (buffer-name) interleave-org-buffer)
       (if (> (length (window-list)) 2)
 	  (delete-window)
 	nil)
     nil))
+
+;; Bugs: when execute `interleave-add-note' on pdf viewer will split pdf-viewer buffer two window.
+;; Then the frame will display three window, which have two same org buffer. So i add after advice
+;; function for interleave on `interleave-add-note'
 (advice-add 'interleave-add-note :after 'interleave--eaf-pdf-viewer-add-note)
 
 (defun interleave--eaf-pdf-viewer-key ()
