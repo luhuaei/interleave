@@ -353,7 +353,7 @@ Return the position of the newly inserted heading."
 If there are already notes for this page, jump to the notes
 buffer."
   (interactive)
-  (let* ((page (funcall interleave-pdf-current-page-fn))
+  (let* ((page (interleave--eaf-pdf-viewer-current-page))
          (position (interleave--go-to-page-note page)))
     (if position
         (interleave--switch-to-org-buffer t position)
