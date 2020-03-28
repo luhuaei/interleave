@@ -54,12 +54,6 @@
   "Interleaving text books since 2015."
   :group 'applications)
 
-(defun interleave-pdf-kill-buffer ()
-  "Kill the current converter process and buffer."
-  (interactive)
-  (when (derived-mode-p 'eaf-mode)
-    (kill-buffer (current-buffer))))
-
 (defcustom interleave-org-notes-dir-list '("~/org/interleave_notes" ".")
   "List of directories to look into when opening notes org from a pdf file.
 
@@ -127,15 +121,6 @@ taken as columns."
   :group 'interleave
   :type 'boolean)
 
-(defun interleave--eaf-pdf-viewer-current-page ()
-  "get current page index."
-  (string-to-number (eaf-call "call_function" eaf--buffer-id "current_page")))
-
-(defun interleave--eaf-pdf-viewer-goto-page (page)
-  "goto page"
-  (message "%s" page)
-  (eaf-call "handle_input_message" eaf--buffer-id "jump_page" page))
-
 (make-variable-buffer-local
  (defvar interleave-multi-pdf-notes-file nil
    "Indicates if the current Org notes file is a multi-pdf notes file."))
@@ -145,6 +130,21 @@ taken as columns."
 
 (defconst interleave--pdf-prop "interleave_pdf"
   "The pdf property string.")
+
+(defun interleave-pdf-kill-buffer ()
+  "Kill the current converter process and buffer."
+  (interactive)
+  (when (derived-mode-p 'eaf-mode)
+    (kill-buffer (current-buffer))))
+
+(defun interleave--eaf-pdf-viewer-current-page ()
+  "get current page index."
+  (string-to-number (eaf-call "call_function" eaf--buffer-id "current_page")))
+
+(defun interleave--eaf-pdf-viewer-goto-page (page)
+  "goto page"
+  (message "%s" page)
+  (eaf-call "handle_input_message" eaf--buffer-id "jump_page" page))
 
 (defun interleave--find-pdf-path (buffer)
   "Search the `interleave_pdf' property in BUFFER and extracts it when found."
