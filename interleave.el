@@ -380,11 +380,8 @@ as the pdf file (just that the notes file will have a .org extension instead
 of .pdf)."
   (interactive)
   (when (derived-mode-p 'eaf-mode)
-    (let* ((pdf-file-name
-	    (if	(expand-file-name (eaf-get-path-or-url))
-	        (buffer-file-name)))
-           (org-file-name-sans-directory (concat (file-name-base pdf-file-name)
-                                                 ".org"))
+    (let* ((pdf-file-name (if (expand-file-name (eaf-get-path-or-url)) (buffer-file-name)))
+           (org-file-name-sans-directory (concat (file-name-base pdf-file-name) ".org"))
            org-file-create-dir
            (cnt 0)
            try-org-file-name
@@ -538,8 +535,7 @@ Keybindings (org-mode buffer):
         ('quit
          (interleave-mode -1)))
     ;; Disable the corresponding minor mode in the PDF file too.
-    (when (and interleave-pdf-buffer
-               (get-buffer interleave-pdf-buffer))
+    (when interleave-pdf-buffer
       (interleave--switch-to-pdf-buffer)
       (interleave-pdf-mode -1)
       (setq interleave-pdf-buffer nil))
@@ -560,8 +556,7 @@ Keybindings (org-mode buffer):
   :lighter " ≡"
   :keymap  interleave-pdf-mode-map
   (when interleave-pdf-mode
-    (progn
-      (setq interleave-pdf-buffer (get-buffer eaf--buffer-app-name)))))
+    (setq interleave-pdf-buffer (get-buffer (buffer-name)))))
 
 ;;; Key-bindings
 (define-key interleave-mode-map (kbd "M-.") #'interleave-sync-pdf-page-current)
