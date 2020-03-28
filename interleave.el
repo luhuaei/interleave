@@ -75,15 +75,6 @@ as \"/pdf/file/dir/\", \"./notes\" is interpreted as
   :type '(repeat directory)
   :group 'interleave)
 
-(defvar interleave-org-buffer nil
-  "Org notes buffer name.")
-
-(defvar interleave-pdf-buffer nil
-  "Name of PDF buffer associated with `interleave-org-buffer'.")
-
-(defvar interleave--window-configuration nil
-  "Variable to store the window configuration before interleave mode was enabled.")
-
 (defcustom interleave-sort-order 'asc
   "Specifiy the notes' sort order in the notes buffer.
 
@@ -111,19 +102,111 @@ taken as columns."
   :type '(choice integer
                  (const nil)))
 
-(defcustom interleave-disable-narrowing nil
-  "Disable narrowing in notes/org buffer."
-  :group 'interleave
-  :type 'boolean)
-
 (defcustom interleave-insert-relative-name t
   "Whether inserted name should be relative when creating a property."
   :group 'interleave
   :type 'boolean)
 
-(make-variable-buffer-local
- (defvar interleave-multi-pdf-notes-file nil
-   "Indicates if the current Org notes file is a multi-pdf notes file."))
+;;; Interleave
+;; Minor mode for the org file buffer containing notes
+(defvar interleave-mode-map (make-sparse-keymap)
+  "Keymap while command `interleave-mode' is active in the org file buffer.")
+
+;;;###autoload
+(define-minor-mode interleave-mode
+  "Interleaving your text books since 2015.
+
+In the past, textbooks were sometimes published as 'interleaved' editions.
+That meant, each page was followed by a blank page and the ambitious student/
+scholar had the ability to take their notes directly in their copy of the
+textbook. Newton and Kant were prominent representatives of this technique.
+
+Nowadays textbooks (or lecture material) come in PDF format. Although almost
+every PDF Reader has the ability to add some notes to the PDF itself, it is
+not as powerful as it could be.
+
+This is what this minor mode tries to accomplish. It presents your PDF side by
+pppside to an [[http://orgmode.org][Org Mode]] buffer with your notes, narrowing
+down to just those passages that are relevant to the particular page in the
+document viewer.
+
+Usage:
+
+- Create a Org file that will keep your notes. In the Org headers section, add
+#+INTERLEAVE_PDF: /the/path/to/your/pdf.pdf
+- Start `interleave-mode' with `M-x interleave-mode'.
+- To insert a note for a page, type `i'.
+- Navigation is the same as in `doc-view-mode'/`pdf-view-mode'.
+
+The split direction is determined by the customizable variable
+`interleave-split-direction'. When `interleave-mode' is invoked
+with a prefix argument the inverse split direction is used
+e.g. if `interleave-split-direction' is 'vertical the buffer is
+split horizontally.
+
+Keybindings (`doc-view-mode'/`pdf-view-mode'):
+
+\\{interleave-pdf-mode-map}
+
+Keybindings (org-mode buffer):
+
+\\{interleave-map}"
+  :lighter " ≡"
+  :keymap  interleave-mode-map
+  (if interleave-mode
+      (condition-case nil
+          (progn
+            (setq interleave-org-buffer (buffer-name))
+            (setq interleave--window-configuration (current-window-configuration))
+            (interleave--open-file (interleave--select-split-function))
+            ;; expand/show all headlines if narrowing is disabled
+            (when interleave-disable-narrowing
+              (with-current-buffer interleave-org-buffer
+                (interleave--goto-search-position)
+                (if interleave-multi-pdf-notes-file
+                    (org-show-subtree)
+                  (show-all))
+                (org-cycle-hide-drawers 'all)))
+            (interleave--go-to-page-note 1)
+            (message "Interleave enabled"))
+        ('quit
+         (interleave-mode -1)))
+    ;; Disable the corresponding minor mode in the PDF file too.
+    (when interleave-pdf-buffer
+      (interleave--switch-to-pdf-buffer)
+      (interleave-pdf-mode -1)
+      (setq interleave-pdf-buffer nil))
+    (set-window-configuration interleave--window-configuration)
+    (setq interleave--window-configuration nil)
+    (setq interleave-org-buffer nil)
+    (message "Interleave mode disabled")))
+
+;;; Interleave PDF Mode
+;; Minor mode for the pdf file buffer associated with the notes
+(defvar interleave-pdf-mode-map (make-sparse-keymap)
+  "Keymap while command `interleave-pdf-mode' is active in the pdf file buffer.")
+
+;;;###autoload
+(define-minor-mode interleave-pdf-mode
+  "Interleave view for the pdf."
+  :lighter " ≡"
+  :keymap  interleave-pdf-mode-map
+  (when interleave-pdf-mode
+    (setq interleave-pdf-buffer (get-buffer (buffer-name)))))
+
+
+;; variables
+(defvar-local interleave-org-buffer nil
+  "Org notes buffer name.")
+
+(defvar-local interleave-pdf-buffer nil
+  "Name of PDF buffer associated with `interleave-org-buffer'.")
+
+(defvar-local interleave--window-configuration nil
+  "Variable to store the window configuration before interleave mode was enabled.")
+
+(defvar-local interleave-multi-pdf-notes-file nil
+   "Indicates if the current Org notes file is a multi-pdf notes file.")
 
 (defconst interleave--page-note-prop "interleave_page_note"
   "The page note property string.")
@@ -131,41 +214,7 @@ taken as columns."
 (defconst interleave--pdf-prop "interleave_pdf"
   "The pdf property string.")
 
-(defun interleave-pdf-kill-buffer ()
-  "Kill the current converter process and buffer."
-  (interactive)
-  (when (derived-mode-p 'eaf-mode)
-    (kill-buffer (current-buffer))))
-
-(defun interleave--eaf-pdf-viewer-current-page ()
-  "get current page index."
-  (string-to-number (eaf-call "call_function" eaf--buffer-id "current_page")))
-
-(defun interleave--eaf-pdf-viewer-goto-page (page)
-  "goto page"
-  (message "%s" page)
-  (eaf-call "handle_input_message" eaf--buffer-id "jump_page" page))
-
-(defun interleave--find-pdf-path (buffer)
-  "Search the `interleave_pdf' property in BUFFER and extracts it when found."
-  (with-current-buffer buffer
-    (save-restriction
-      (widen)
-      (save-excursion
-        (goto-char (point-min))
-        (when (re-search-forward "^#\\+interleave_pdf: \\(.*\\)" nil :noerror)
-          (match-string 1))))))
-
-(defun interleave--headline-pdf-path (buffer)
-  "Return the INTERLEAVE_PDF property of the current headline in BUFFER."
-  (with-current-buffer buffer
-    (save-excursion
-      (let ((headline (org-element-at-point)))
-        (when (and (equal (org-element-type headline) 'headline)
-                   (org-entry-get nil interleave--pdf-prop))
-          (setq interleave-multi-pdf-notes-file t)
-          (org-entry-get nil interleave--pdf-prop))))))
-
+;; functions
 (defun interleave--open-file (split-window)
   "Opens the pdf file in besides the notes buffer.
 
@@ -197,19 +246,46 @@ SPLIT-WINDOW is a function that actually splits the window, so it must be either
     (interleave-pdf-mode 1)
     pdf-file-name))
 
-(defun interleave--goto-parent-headline (property)
-  "Traverse the tree until the parent headline.
+(defun interleave--headline-pdf-path (buffer)
+  "Return the INTERLEAVE_PDF property of the current headline in BUFFER."
+  (with-current-buffer buffer
+    (save-excursion
+      (let ((headline (org-element-at-point)))
+        (when (and (equal (org-element-type headline) 'headline)
+                   (org-entry-get nil interleave--pdf-prop))
+          (setq interleave-multi-pdf-notes-file t)
+          (org-entry-get nil interleave--pdf-prop))))))
 
-Consider a headline with property PROPERTY as parent headline."
-  (catch 'done
-    (if (and (eql (org-element-type (org-element-at-point)) 'headline)
-             (org-entry-get (point) property))
-        (org-element-at-point)
-      (condition-case nil
-          (org-up-element)
-        ('error
-         (throw 'done nil)))
-      (interleave--goto-parent-headline property))))
+(defun interleave--find-pdf-path (buffer)
+  "Search the `interleave_pdf' property in BUFFER and extracts it when found."
+  (with-current-buffer buffer
+    (save-restriction
+      (widen)
+      (save-excursion
+        (goto-char (point-min))
+        (when (re-search-forward "^#\\+interleave_pdf: \\(.*\\)" nil :noerror)
+          (match-string 1))))))
+
+(defun interleave--select-split-function ()
+  "Determine which split function to use.
+
+This returns either `split-window-below' or `split-window-right'
+based on a combination of `current-prefix-arg' and
+`interleave-split-direction'."
+  (let ((split-plist (list 'vertical #'split-window-right
+                           'horizontal #'split-window-below))
+        (current-split interleave-split-direction))
+    (plist-get split-plist
+               (if current-prefix-arg
+                   (if (eql current-split 'vertical)
+                       'horizontal
+                     'vertical)
+                 current-split))))
+
+(defcustom interleave-disable-narrowing nil
+  "Disable narrowing in notes/org buffer."
+  :group 'interleave
+  :type 'boolean)
 
 (defun interleave--goto-search-position ()
   "Move point to the search start position.
@@ -219,19 +295,6 @@ this is the beginning of the buffer."
   (if interleave-multi-pdf-notes-file
       (interleave--goto-parent-headline interleave--pdf-prop)
     (goto-char (point-min))))
-
-(defun interleave--narrow-to-subtree (&optional force)
-  "Narrow buffer to the current subtree.
-
-If `interleave-disable-narrowing' is non-nil this
-function does nothing.
-
-When FORCE is non-nil `interleave-disable-narrowing' is
-ignored."
-  (when (and (not (org-before-first-heading-p))
-             (or (not interleave-disable-narrowing)
-                 force))
-    (org-narrow-to-subtree)))
 
 (defun interleave--go-to-page-note (page)
   "Look up the notes for the current pdf PAGE.
@@ -272,6 +335,54 @@ It (possibly) narrows the subtree when found."
           (recenter)))
       point)))
 
+(defun interleave--switch-to-pdf-buffer ()
+  "Switch to the pdf buffer."
+  (if (derived-mode-p 'org-mode)
+      (switch-to-buffer-other-window interleave-pdf-buffer)
+    (switch-to-buffer interleave-pdf-buffer)))
+
+(defun interleave-pdf-kill-buffer ()
+  "Kill the current converter process and buffer."
+  (interactive)
+  (when (derived-mode-p 'eaf-mode)
+    (kill-buffer (current-buffer))))
+
+(defun interleave--eaf-pdf-viewer-current-page ()
+  "get current page index."
+  (string-to-number (eaf-call "call_function" eaf--buffer-id "current_page")))
+
+(defun interleave--eaf-pdf-viewer-goto-page (page)
+  "goto page"
+  (message "%s" page)
+  (eaf-call "handle_input_message" eaf--buffer-id "jump_page" page))
+
+(defun interleave--goto-parent-headline (property)
+  "Traverse the tree until the parent headline.
+
+Consider a headline with property PROPERTY as parent headline."
+  (catch 'done
+    (if (and (eql (org-element-type (org-element-at-point)) 'headline)
+             (org-entry-get (point) property))
+        (org-element-at-point)
+      (condition-case nil
+          (org-up-element)
+        ('error
+         (throw 'done nil)))
+      (interleave--goto-parent-headline property))))
+
+(defun interleave--narrow-to-subtree (&optional force)
+  "Narrow buffer to the current subtree.
+
+If `interleave-disable-narrowing' is non-nil this
+function does nothing.
+
+When FORCE is non-nil `interleave-disable-narrowing' is
+ignored."
+  (when (and (not (org-before-first-heading-p))
+             (or (not interleave-disable-narrowing)
+                 force))
+    (org-narrow-to-subtree)))
+
 (defun interleave--switch-to-org-buffer (&optional insert-newline-maybe position)
   "Switch to the notes buffer.
 
@@ -295,12 +406,6 @@ If POSITION is non-nil move point to it."
     ;; Insert a new line if not already on a new line
     (when (not (looking-back "^ *" (line-beginning-position)))
       (org-return))))
-
-(defun interleave--switch-to-pdf-buffer ()
-  "Switch to the pdf buffer."
-  (if (derived-mode-p 'org-mode)
-      (switch-to-buffer-other-window interleave-pdf-buffer)
-    (switch-to-buffer interleave-pdf-buffer)))
 
 (defun interleave--goto-insert-position ()
   "Move the point to the right insert postion.
@@ -454,109 +559,6 @@ SORT-ORDER is either 'asc or 'desc."
                           #'>))
     ('user-error nil)))
 
-(defun interleave--select-split-function ()
-  "Determine which split function to use.
-
-This returns either `split-window-below' or `split-window-right'
-based on a combination of `current-prefix-arg' and
-`interleave-split-direction'."
-  (let ((split-plist (list 'vertical #'split-window-right
-                           'horizontal #'split-window-below))
-        (current-split interleave-split-direction))
-    (plist-get split-plist
-               (if current-prefix-arg
-                   (if (eql current-split 'vertical)
-                       'horizontal
-                     'vertical)
-                 current-split))))
-
-;;; Interleave
-;; Minor mode for the org file buffer containing notes
-(defvar interleave-mode-map (make-sparse-keymap)
-  "Keymap while command `interleave-mode' is active in the org file buffer.")
-
-;;;###autoload
-(define-minor-mode interleave-mode
-  "Interleaving your text books since 2015.
-
-In the past, textbooks were sometimes published as 'interleaved' editions.
-That meant, each page was followed by a blank page and the ambitious student/
-scholar had the ability to take their notes directly in their copy of the
-textbook. Newton and Kant were prominent representatives of this technique.
-
-Nowadays textbooks (or lecture material) come in PDF format. Although almost
-every PDF Reader has the ability to add some notes to the PDF itself, it is
-not as powerful as it could be.
-
-This is what this minor mode tries to accomplish. It presents your PDF side by
-pppside to an [[http://orgmode.org][Org Mode]] buffer with your notes, narrowing
-down to just those passages that are relevant to the particular page in the
-document viewer.
-
-Usage:
-
-- Create a Org file that will keep your notes. In the Org headers section, add
-#+INTERLEAVE_PDF: /the/path/to/your/pdf.pdf
-- Start `interleave-mode' with `M-x interleave-mode'.
-- To insert a note for a page, type `i'.
-- Navigation is the same as in `doc-view-mode'/`pdf-view-mode'.
-
-The split direction is determined by the customizable variable
-`interleave-split-direction'. When `interleave-mode' is invoked
-with a prefix argument the inverse split direction is used
-e.g. if `interleave-split-direction' is 'vertical the buffer is
-split horizontally.
-
-Keybindings (`doc-view-mode'/`pdf-view-mode'):
-
-\\{interleave-pdf-mode-map}
-
-Keybindings (org-mode buffer):
-
-\\{interleave-map}"
-  :lighter " ≡"
-  :keymap  interleave-mode-map
-  (if interleave-mode
-      (condition-case nil
-          (progn
-            (setq interleave-org-buffer (buffer-name))
-            (setq interleave--window-configuration (current-window-configuration))
-            (interleave--open-file (interleave--select-split-function))
-            ;; expand/show all headlines if narrowing is disabled
-            (when interleave-disable-narrowing
-              (with-current-buffer interleave-org-buffer
-                (interleave--goto-search-position)
-                (if interleave-multi-pdf-notes-file
-                    (org-show-subtree)
-                  (show-all))
-                (org-cycle-hide-drawers 'all)))
-            (interleave--go-to-page-note 1)
-            (message "Interleave enabled"))
-        ('quit
-         (interleave-mode -1)))
-    ;; Disable the corresponding minor mode in the PDF file too.
-    (when interleave-pdf-buffer
-      (interleave--switch-to-pdf-buffer)
-      (interleave-pdf-mode -1)
-      (setq interleave-pdf-buffer nil))
-    (set-window-configuration interleave--window-configuration)
-    (setq interleave--window-configuration nil)
-    (setq interleave-org-buffer nil)
-    (message "Interleave mode disabled")))
-
-;;; Interleave PDF Mode
-;; Minor mode for the pdf file buffer associated with the notes
-
-(defvar interleave-pdf-mode-map (make-sparse-keymap)
-  "Keymap while command `interleave-pdf-mode' is active in the pdf file buffer.")
-
-;;;###autoload
-(define-minor-mode interleave-pdf-mode
-  "Interleave view for the pdf."
-  :lighter " ≡"
-  :keymap  interleave-pdf-mode-map
-  (when interleave-pdf-mode
-    (setq interleave-pdf-buffer (get-buffer (buffer-name)))))
 
 ;;; Key-bindings
 (define-key interleave-mode-map (kbd "M-.") #'interleave-sync-pdf-page-current)
