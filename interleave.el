@@ -52,8 +52,7 @@
 
 (defgroup interleave nil
   "Interleaving text books since 2015."
-  :group 'convenience
-  :version "25.1")
+  :group 'applications)
 
 (defun interleave-pdf-kill-buffer ()
   "Kill the current converter process and buffer."
@@ -80,11 +79,6 @@ replaced with the pdf directory name.  e.g. \".\" is interpreted
 as \"/pdf/file/dir/\", \"./notes\" is interpreted as
 \"/pdf/file/dir/notes/\"."
   :type '(repeat directory)
-  :group 'interleave)
-
-(defcustom interleave-pdf-readder "eaf"
-  "Special the default pdf readder. support `pdf-tools' `doc-view' `eaf-pdfviewer'"
-  :type 'string
   :group 'interleave)
 
 (defvar interleave-org-buffer nil
@@ -199,9 +193,7 @@ SPLIT-WINDOW is a function that actually splits the window, so it must be either
       (if (eql interleave-split-direction 'horizontal)
           (enlarge-window interleave-split-lines)
         (enlarge-window-horizontally interleave-split-lines)))
-    (if (equal interleave-pdf-readder "eaf")
-	(eaf-open (expand-file-name pdf-file-name))
-      (find-file (expand-file-name pdf-file-name)))
+    (eaf-open (expand-file-name pdf-file-name))
     (interleave-pdf-mode 1)
     pdf-file-name))
 
