@@ -173,7 +173,8 @@ Keybindings (org-mode buffer):
     (setq interleave-org-buffer nil)
     (setq interleave--current-pdf-file nil)
     (with-current-buffer interleave-pdf-buffer
-      (interleave-pdf-mode -1))
+      (interleave-pdf-mode -1)
+      (interleave-pdf-kill-buffer))
     (setq interleave-pdf-buffer nil)
     ))
 
