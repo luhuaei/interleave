@@ -322,7 +322,7 @@ It (possibly) narrows the subtree when found."
 (defun interleave--eaf-pdf-viewer-current-page ()
   "get current page index."
   (let ((id (buffer-local-value 'eaf--buffer-id interleave-pdf-buffer)))
-    (+ (string-to-number (eaf-call "call_function" id "current_page")) 1)))
+    (string-to-number (eaf-call "call_function" id "current_page"))))
 
 (defun interleave--eaf-pdf-viewer-goto-page (page)
   "goto page"
@@ -556,23 +556,11 @@ SORT-ORDER is either 'asc or 'desc."
       (org-sort-entries nil ?f
                         (lambda ()
                           (let ((page-note (org-entry-get nil "interleave_page_note")))
-                            (if page-note
-                                (string-to-number page-note)
-                              -1)))
+                            (if page-note (string-to-number page-note) -1)))
                         (if (eq sort-order 'asc)
                             #'<
                           #'>))
     ('user-error nil)))
 
-
-;;; Key-bindings
-(define-key interleave-mode-map (kbd "M-.") #'interleave-sync-pdf-page-current)
-(define-key interleave-mode-map (kbd "M-p") #'interleave-sync-pdf-page-previous)
-(define-key interleave-mode-map (kbd "M-n") #'interleave-sync-pdf-page-next)
-(define-key interleave-pdf-mode-map (kbd "C-c M-o") #'interleave-open-notes-file-for-pdf)
-(define-key interleave-pdf-mode-map (kbd "C-c M-q") #'interleave-quit)
-(define-key interleave-pdf-mode-map (kbd "C-c M-i") #'interleave-add-note)
-
 (provide 'interleave)
-
 ;;; interleave.el ends here
