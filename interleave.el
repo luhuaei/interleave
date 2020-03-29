@@ -167,16 +167,14 @@ Keybindings (org-mode buffer):
             (org-cycle-hide-drawers 'all)))
         (interleave--go-to-page-note 1)
         (message "Interleave enabled"))
-
-    ;; ;; Disable the corresponding minor mode in the PDF file too.
-    ;; (when interleave-pdf-buffer
-    ;;   (interleave--switch-to-pdf-buffer)
-    ;;   (interleave-pdf-mode -1)
-    ;;   (setq interleave-pdf-buffer nil)
-    ;;   (set-window-configuration interleave--window-configuration)
-    ;;   (setq interleave--window-configuration nil)
-    ;;   (setq interleave-org-buffer nil)
-    ;;   (message "Interleave mode disabled"))
+    ;; Disable the corresponding minor mode in the PDF file too.
+    (set-window-configuration interleave--window-configuration)
+    (setq interleave--window-configuration nil)
+    (setq interleave-org-buffer nil)
+    (setq interleave--current-pdf-file nil)
+    (with-current-buffer interleave-pdf-buffer
+      (interleave-pdf-mode -1))
+    (setq interleave-pdf-buffer nil)
     ))
 
 ;;; Interleave PDF Mode
