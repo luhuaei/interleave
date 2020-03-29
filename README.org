@@ -21,6 +21,14 @@ This item is my fork on [[https://github.com/rudolfochrist/interleave][interleav
   :ensure nil
   :quelpa (interleave :fetcher github :repo "luhuaei/interleave")
   :diminish interleave-pdf-mode interleave-mode
+  :bind (:map interleave-mode-map
+         ("M-." . 'interleave-sync-pdf-page-current)
+         ("M-p" . 'interleave-sync-pdf-page-previous)
+         ("M-n" . 'interleave-sync-pdf-page-next)
+         :map interleave-pdf-mode-map
+         ("C-c M-i" . 'interleave-add-note)
+         ("C-c M-o" . 'interleave-open-notes-file-for-pdf)
+         ("C-c M-q" . 'interleave-quit))
   :config
   (setq interleave-org-notes-dir-list '("~/org/interleave/")
   (setq interleave-split-direction 'vertical)
