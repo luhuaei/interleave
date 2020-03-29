@@ -156,7 +156,7 @@ Keybindings (org-mode buffer):
       (progn
         (setq interleave-org-buffer (current-buffer))
         (setq interleave--window-configuration (current-window-configuration))
-        (interleave--open-file (interleave--select-split-function))
+        (interleave--open-file)
         ;; expand/show all headlines if narrowing is disabled
         (when interleave-disable-narrowing
           (with-current-buffer interleave-org-buffer
@@ -213,7 +213,7 @@ Keybindings (org-mode buffer):
   "The pdf property string.")
 
 ;; functions
-(defun interleave--open-file (split-window)
+(defun interleave--open-file ()
   "Opens the pdf file in besides the notes buffer.
 
 SPLIT-WINDOW is a function that actually splits the window, so it must be either
@@ -232,15 +232,14 @@ SPLIT-WINDOW is a function that actually splits the window, so it must be either
           (goto-char (point-min))
           (insert "#+INTERLEAVE_PDF: " pdf-file-name))))
     (setq interleave--current-pdf-file pdf-file-name)
-    (delete-other-windows)
-    (funcall split-window)
-    (when (integerp interleave-split-lines)
-      (if (eql interleave-split-direction 'horizontal)
-          (enlarge-window interleave-split-lines)
-        (enlarge-window-horizontally interleave-split-lines)))
-    (eaf-open pdf-file-name)
-    (add-hook 'eaf-pdf-viewer-hook 'interleave-pdf-mode)
+    (interleave--select-split-function)
+    (interleave--eaf-open-pdf pdf-file-name)
     pdf-file-name))
+
+(defun interleave--eaf-open-pdf (pdf-file-name)
+  "Use EAF PdfViewer open this pdf-file-name document."
+  (eaf-open pdf-file-name)
+  (add-hook 'eaf-pdf-viewer-hook 'interleave-pdf-mode))
 
 (defun interleave--headline-pdf-path (buffer)
   "Return the INTERLEAVE_PDF property of the current headline in BUFFER."
@@ -268,15 +267,16 @@ SPLIT-WINDOW is a function that actually splits the window, so it must be either
 This returns either `split-window-below' or `split-window-right'
 based on a combination of `current-prefix-arg' and
 `interleave-split-direction'."
-  (let ((split-plist (list 'vertical #'split-window-right
-                           'horizontal #'split-window-below))
-        (current-split interleave-split-direction))
-    (plist-get split-plist
-               (if current-prefix-arg
-                   (if (eql current-split 'vertical)
-                       'horizontal
-                     'vertical)
-                 current-split))))
+  (let
+      (delete-other-windows)
+    (if (string= interleave-split-direction "vertical")
+        (split-window-right)
+      (split-window-below))
+    (when (integerp interleave-split-lines)
+      (if (eql interleave-split-direction 'horizontal)
+          (enlarge-window interleave-split-lines)
+        (enlarge-window-horizontally interleave-split-lines)))
+    ))
 
 (defcustom interleave-disable-narrowing nil
   "Disable narrowing in notes/org buffer."
