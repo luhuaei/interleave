@@ -3,6 +3,7 @@
 ;; Author: Sebastian Christ <rudolfo.christ@gmail.com>
 ;; URL: https://github.com/rudolfochrist/interleave
 ;; Version: 1.4.20161123-610
+;; fork: luhuaei <luhuaei@gmail.com>
 
 ;; This file is not part of GNU Emacs
 
@@ -37,12 +38,6 @@
 ;; document viewer.
 
 ;;; Usage:
-
-;; - Create a Org file that will keep your notes. In the Org headers section, add
-;; #+INTERLEAVE_PDF: /the/path/to/your/pdf.pdf
-;; - Start `interleave-mode' with `M-x interleave-mode'.
-;; - To insert a note for a page, type `i'.
-;; - Navigation is the same as in `doc-view-mode'/`pdf-view-mode'."
 
 ;;; Code:
 
@@ -130,27 +125,11 @@ pppside to an [[http://orgmode.org][Org Mode]] buffer with your notes, narrowing
 down to just those passages that are relevant to the particular page in the
 document viewer.
 
-Usage:
-
-- Create a Org file that will keep your notes. In the Org headers section, add
-#+INTERLEAVE_PDF: /the/path/to/your/pdf.pdf
-- Start `interleave-mode' with `M-x interleave-mode'.
-- To insert a note for a page, type `i'.
-- Navigation is the same as in `doc-view-mode'/`pdf-view-mode'.
-
 The split direction is determined by the customizable variable
 `interleave-split-direction'. When `interleave-mode' is invoked
 with a prefix argument the inverse split direction is used
 e.g. if `interleave-split-direction' is 'vertical the buffer is
-split horizontally.
-
-Keybindings (`doc-view-mode'/`pdf-view-mode'):
-
-\\{interleave-pdf-mode-map}
-
-Keybindings (org-mode buffer):
-
-\\{interleave-map}"
+split horizontally."
   :keymap interleave-mode-map
   (if interleave-mode
       (progn

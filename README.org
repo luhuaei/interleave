@@ -17,20 +17,19 @@ just those passages that are relevant to this particular page in the document vi
 In a later step it should be possible to create truly /interleaved/ PDFs of your notes.
 
 * Installation
+This item is my fork on [[https://github.com/rudolfochrist/interleave][interleave]], but this using [[https://github.com/manateelazycat/emacs-application-framework][EAF]] open the PDF file.
 
-Add MELPA to your package archives in your init file
-
-#+BEGIN_SRC emacs-lisp
-(package-initialize)
-(add-to-list 'package-archives
-             '("melpa" . "http://melpa.org/packages/") t)
-#+END_SRC
-
-Then install *interleave-mode* with
-
-#+BEGIN_EXAMPLE
-M-x package-install RET interleave RET
-#+END_EXAMPLE
+#+begin_src
+(use-package interleave
+  :ensure nil
+  :quelpa (interleave :fetcher github :repo "luhuaei/interleave")
+  :diminish interleave-pdf-mode interleave-mode
+  :config
+  (setq interleave-org-notes-dir-list '("~/org/interleave/")
+  (setq interleave-split-direction 'vertical)
+  (setq interleave-disable-narrowing t)
+  (setq interleave-split-lines 20))
+#+end_src
 
 * Usage
 
@@ -61,7 +60,7 @@ Typing @@html:<kbd>@@q@@html:</kbd>@@ in the /DocView/ will quit *interleave-mod
 
 To customize Interleave you can use the customization interface with
 
-: M-x customize-group RET interleave 
+: M-x customize-group RET interleave
 
 ** Multi-PDF Notes
 
