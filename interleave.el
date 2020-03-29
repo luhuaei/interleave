@@ -337,18 +337,51 @@ It (possibly) narrows the subtree when found."
 (defun interleave-pdf-kill-buffer ()
   "Kill the current converter process and buffer."
   (interactive)
-  (when (derived-mode-p 'eaf-mode)
-    (kill-buffer (current-buffer))))
+  (when interleave-pdf-buffer
+    (kill-buffer interleave-pdf-buffer)))
 
 (defun interleave--eaf-pdf-viewer-current-page ()
   "get current page index."
   (let ((id (buffer-local-value 'eaf--buffer-id interleave-pdf-buffer)))
-    (string-to-number (eaf-call "call_function" id "current_page"))))
+    (+ (string-to-number (eaf-call "call_function" id "current_page")) 1)))
 
 (defun interleave--eaf-pdf-viewer-goto-page (page)
   "goto page"
   (let ((id (buffer-local-value 'eaf--buffer-id interleave-pdf-buffer)))
     (eaf-call "handle_input_message" id "jump_page" page)))
+
+(defun interleave-sync-pdf-page-previous ()
+  "Move to the previous set of notes.
+This show the previous notes and synchronizes the PDF to the right page number."
+  (interactive)
+  (interleave--switch-to-org-buffer)
+  (widen)
+  (interleave--goto-parent-headline interleave--page-note-prop)
+  (org-backward-heading-same-level 1)
+  (interleave--narrow-to-subtree)
+  (org-show-subtree)
+  (org-cycle-hide-drawers t)
+  (interleave-sync-pdf-page-current))
+
+(defun interleave-sync-pdf-page-next ()
+  "Move to the next set of notes.
+This shows the next notes and synchronizes the PDF to the right page number."
+  (interactive)
+  (interleave--switch-to-org-buffer)
+  (widen)
+  ;; go to the first notes heading if we're not at an headline or if
+  ;; we're on multi-pdf heading. This is useful to quickly jump to the
+  ;; notes if they start at page 96 or so. Image you need to skip page
+  ;; for page.
+  (if (interleave--goto-parent-headline interleave--page-note-prop)
+      (org-forward-heading-same-level 1)
+    (when interleave-multi-pdf-notes-file
+      (org-show-subtree))
+    (outline-next-visible-heading 1))
+  (interleave--narrow-to-subtree)
+  (org-show-subtree)
+  (org-cycle-hide-drawers t)
+  (interleave-sync-pdf-page-current))
 
 (defun interleave--goto-parent-headline (property)
   "Traverse the tree until the parent headline.
@@ -555,6 +588,8 @@ SORT-ORDER is either 'asc or 'desc."
 
 ;;; Key-bindings
 (define-key interleave-mode-map (kbd "M-.") #'interleave-sync-pdf-page-current)
+(define-key interleave-mode-map (kbd "M-p") #'interleave-sync-pdf-page-previous)
+(define-key interleave-mode-map (kbd "M-n") #'interleave-sync-pdf-page-next)
 (define-key interleave-pdf-mode-map (kbd "C-c M-o") #'interleave-open-notes-file-for-pdf)
 (define-key interleave-pdf-mode-map (kbd "C-c M-q") #'interleave-quit)
 (define-key interleave-pdf-mode-map (kbd "C-c M-i") #'interleave-add-note)
