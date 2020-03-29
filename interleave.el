@@ -151,7 +151,6 @@ Keybindings (`doc-view-mode'/`pdf-view-mode'):
 Keybindings (org-mode buffer):
 
 \\{interleave-map}"
-  :lighter " ≡"
   :keymap interleave-mode-map
   (if interleave-mode
       (progn
@@ -190,7 +189,9 @@ Keybindings (org-mode buffer):
 (define-minor-mode interleave-pdf-mode
   "Interleave view for the pdf."
   :keymap interleave-pdf-mode-map
-)
+  (when interleave-pdf-mode
+    (setq interleave-pdf-buffer (get-buffer (file-name-nondirectory interleave--current-pdf-file))))
+  )
 
 ;; variables
 (defvar interleave-org-buffer nil
@@ -202,8 +203,10 @@ Keybindings (org-mode buffer):
 (defvar interleave--window-configuration nil
   "Variable to store the window configuration before interleave mode was enabled.")
 
+(defvar interleave--current-pdf-file nil)
+
 (defvar-local interleave-multi-pdf-notes-file nil
-   "Indicates if the current Org notes file is a multi-pdf notes file.")
+  "Indicates if the current Org notes file is a multi-pdf notes file.")
 
 (defconst interleave--page-note-prop "interleave_page_note"
   "The page note property string.")
@@ -217,15 +220,12 @@ Keybindings (org-mode buffer):
 
 SPLIT-WINDOW is a function that actually splits the window, so it must be either
 `split-window-right' or `split-window-below'."
-  (let* ((buf (current-buffer))
-         (pdf-file-name
-          (or (interleave--headline-pdf-path buf)
-              (interleave--find-pdf-path buf))))
+  (let* ((pdf-file-name
+          (or (interleave--headline-pdf-path interleave-org-buffer)
+              (interleave--find-pdf-path interleave-org-buffer))))
     (unless pdf-file-name
       (setq pdf-file-name
             (read-file-name "No INTERLEAVE_PDF property found. Please specify path: " nil nil t))
-      (when interleave-insert-relative-name
-        (setq pdf-file-name (file-relative-name pdf-file-name)))
       ;; Check whether we have any entry at point with `org-entry-properties' before
       ;; prompting if the user wants multi-pdf.
       (if (and (org-entry-properties) (y-or-n-p "Is this multi-pdf? "))
@@ -233,15 +233,15 @@ SPLIT-WINDOW is a function that actually splits the window, so it must be either
         (save-excursion
           (goto-char (point-min))
           (insert "#+INTERLEAVE_PDF: " pdf-file-name))))
+    (setq interleave--current-pdf-file pdf-file-name)
     (delete-other-windows)
     (funcall split-window)
     (when (integerp interleave-split-lines)
       (if (eql interleave-split-direction 'horizontal)
           (enlarge-window interleave-split-lines)
         (enlarge-window-horizontally interleave-split-lines)))
-    (eaf-open (expand-file-name pdf-file-name))
+    (eaf-open pdf-file-name)
     (add-hook 'eaf-pdf-viewer-hook 'interleave-pdf-mode)
-    (setq interleave-pdf-buffer (current-buffer))
     pdf-file-name))
 
 (defun interleave--headline-pdf-path (buffer)
@@ -333,12 +333,6 @@ It (possibly) narrows the subtree when found."
           (recenter)))
       point)))
 
-(defun interleave--switch-to-pdf-buffer ()
-  "Switch to the pdf buffer."
-  (if (derived-mode-p 'org-mode)
-      (switch-to-buffer-other-window interleave-pdf-buffer)
-    (switch-to-buffer interleave-pdf-buffer)))
-
 (defun interleave-pdf-kill-buffer ()
   "Kill the current converter process and buffer."
   (interactive)
@@ -347,11 +341,13 @@ It (possibly) narrows the subtree when found."
 
 (defun interleave--eaf-pdf-viewer-current-page ()
   "get current page index."
-  (string-to-number (eaf-call "call_function" eaf--buffer-id "current_page")))
+  (let ((id (buffer-local-value 'eaf--buffer-id interleave-pdf-buffer)))
+    (string-to-number (eaf-call "call_function" id "current_page"))))
 
 (defun interleave--eaf-pdf-viewer-goto-page (page)
   "goto page"
-  (eaf-call "handle_input_message" eaf--buffer-id "jump_page" page))
+  (let ((id (buffer-local-value 'eaf--buffer-id interleave-pdf-buffer)))
+    (eaf-call "handle_input_message" id "jump_page" page)))
 
 (defun interleave--goto-parent-headline (property)
   "Traverse the tree until the parent headline.
@@ -469,8 +465,10 @@ buffer."
     (when (and (integerp pdf-page)
                (> pdf-page 0)) ; The page number needs to be a positive integer
       (interleave--narrow-to-subtree)
-      (interleave--switch-to-pdf-buffer)
-      (interleave--eaf-pdf-viewer-goto-page pdf-page))))
+      (message "%s" interleave-pdf-buffer)
+      (with-current-buffer interleave-pdf-buffer
+        (interleave--eaf-pdf-viewer-goto-page pdf-page))
+      )))
 
 ;;;###autoload
 (defun interleave-open-notes-file-for-pdf ()
