@@ -220,26 +220,31 @@ SPLIT-WINDOW is a function that actually splits the window, so it must be either
 `split-window-right' or `split-window-below'."
   (let* ((pdf-file-name
           (or (interleave--headline-pdf-path interleave-org-buffer)
-              (interleave--find-pdf-path interleave-org-buffer))))
-    (unless pdf-file-name
-      (setq pdf-file-name
-            (read-file-name "No INTERLEAVE_PDF property found. Please specify path: " nil nil t))
-      ;; Check whether we have any entry at point with `org-entry-properties' before
-      ;; prompting if the user wants multi-pdf.
-      (if (and (org-entry-properties) (y-or-n-p "Is this multi-pdf? "))
-          (org-entry-put (point) "INTERLEAVE_PDF" pdf-file-name)
-        (save-excursion
-          (goto-char (point-min))
-          (insert "#+INTERLEAVE_PDF: " pdf-file-name))))
+              (interleave--find-pdf-path interleave-org-buffer)
+              (interleave--handle-parse-pdf-file-name))))
     (setq interleave--current-pdf-file pdf-file-name)
     (interleave--select-split-function)
     (interleave--eaf-open-pdf pdf-file-name)
+    pdf-file-name))
+
+(defun interleave--handle-parse-pdf-file-name ()
+  "When don't parse responsive pdf file on current org file."
+  (let ((pdf-file-name (read-file-name "No INTERLEAVE_PDF property found. Please specify path: " nil nil t)))
+    ;; Check whether we have any entry at point with `org-entry-properties' before
+    ;; prompting if the user wants multi-pdf.
+    (if (and (org-entry-properties) (y-or-n-p "Is this multi-pdf? "))
+        (org-entry-put (point) "INTERLEAVE_PDF" pdf-file-name)
+      (save-excursion
+        (goto-char (point-min))
+        (insert "#+INTERLEAVE_PDF: " pdf-file-name)))
     pdf-file-name))
 
 (defun interleave--eaf-open-pdf (pdf-file-name)
   "Use EAF PdfViewer open this pdf-file-name document."
   (eaf-open pdf-file-name)
   (add-hook 'eaf-pdf-viewer-hook 'interleave-pdf-mode))
+
+
 
 (defun interleave--headline-pdf-path (buffer)
   "Return the INTERLEAVE_PDF property of the current headline in BUFFER."
